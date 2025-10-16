@@ -1,10 +1,10 @@
 {
-  "displayName": "Configure Linux machines to run Azure Monitor Agent and associate them to two possible DCRs (Primary/Secondary)",
+  "displayName": "Configure Linux machines to run Azure Monitor Agent and associate them to two DCRs and two DCEs",
   "policyType": "Custom",
   "mode": "Indexed",
-  "description": "Deploys the Azure Monitor Agent (AMA) on Linux VMs and associates them automatically with one of two possible Data Collection Rules (Primary/Secondary) depending on region or fallback logic.",
+  "description": "Deploys the Azure Monitor Agent (AMA) on Linux VMs and associates them automatically with one of two possible Data Collection Rules (Primary/Secondary) and Data Collection Endpoints (Primary/Secondary) depending on region or fallback logic.",
   "metadata": {
-    "version": "1.0.0",
+    "version": "1.0.2",
     "category": "Monitoring"
   },
   "parameters": {
@@ -20,56 +20,37 @@
       ],
       "defaultValue": "DeployIfNotExists"
     },
-    "scopeToSupportedImages": {
-      "type": "Boolean",
-      "metadata": {
-        "displayName": "Scope Policy to Azure Monitor Agent-Supported Operating Systems",
-        "description": "If set to true, the policy will apply only to machines with supported operating systems. Otherwise, the policy will apply to all machines in the assignment scope."
-      },
-      "allowedValues": [
-        true,
-        false
-      ],
-      "defaultValue": true
-    },
-    "listOfLinuxImageIdToInclude": {
-      "type": "Array",
-      "metadata": {
-        "displayName": "Additional Virtual Machine Images",
-        "description": "List of virtual machine images that have supported Linux OS to add to scope."
-      },
-      "defaultValue": []
-    },
     "dcrResourceIdPrimary": {
       "type": "String",
       "metadata": {
-        "displayName": "Primary Data Collection Rule Resource Id",
-        "description": "The primary Data Collection Rule Resource ID for association."
+        "displayName": "Primary Data Collection Rule Resource Id"
       }
     },
     "dcrResourceIdSecondary": {
       "type": "String",
       "metadata": {
-        "displayName": "Secondary Data Collection Rule Resource Id",
-        "description": "The secondary Data Collection Rule Resource ID (used as fallback or alternate region)."
+        "displayName": "Secondary Data Collection Rule Resource Id"
+      }
+    },
+    "dceResourceIdPrimary": {
+      "type": "String",
+      "metadata": {
+        "displayName": "Primary Data Collection Endpoint Resource Id"
+      }
+    },
+    "dceResourceIdSecondary": {
+      "type": "String",
+      "metadata": {
+        "displayName": "Secondary Data Collection Endpoint Resource Id"
       }
     }
   },
   "policyRule": {
     "if": {
       "anyOf": [
-        {
-          "field": "type",
-          "equals": "Microsoft.Compute/virtualMachines"
-        },
-        {
-          "field": "type",
-          "equals": "Microsoft.HybridCompute/machines"
-        },
-        {
-          "field": "type",
-          "equals": "Microsoft.Compute/virtualMachineScaleSets"
-        }
+        { "field": "type", "equals": "Microsoft.Compute/virtualMachines" },
+        { "field": "type", "equals": "Microsoft.HybridCompute/machines" },
+        { "field": "type", "equals": "Microsoft.Compute/virtualMachineScaleSets" }
       ]
     },
     "then": {
@@ -78,8 +59,12 @@
         "type": "Microsoft.Compute/virtualMachines/extensions",
         "name": "AzureMonitorLinuxAgent",
         "existenceCondition": {
-          "field": "Microsoft.Compute/virtualMachines/extensions/type",
-          "equals": "AzureMonitorLinuxAgent"
+          "allOf": [
+            { "value": "[parameters('dcrResourceIdPrimary')]", "exists": "true" },
+            { "value": "[parameters('dcrResourceIdSecondary')]", "exists": "true" },
+            { "value": "[parameters('dceResourceIdPrimary')]", "exists": "true" },
+            { "value": "[parameters('dceResourceIdSecondary')]", "exists": "true" }
+          ]
         },
         "deployment": {
           "properties": {
@@ -99,7 +84,8 @@
                     "typeHandlerVersion": "1.0",
                     "autoUpgradeMinorVersion": true,
                     "settings": {
-                      "dataCollectionRuleResourceId": "[if(equals(toLower(field('location')), 'brazilsouth'), parameters('dcrResourceIdPrimary'), parameters('dcrResourceIdSecondary'))]"
+                      "dataCollectionRuleResourceId": "[parameters('dcrResourceIdPrimary')]",
+                      "dataCollectionEndpointResourceId": "[parameters('dceResourceIdPrimary')]"
                     }
                   }
                 }
