@@ -11,7 +11,7 @@
       "type": "String",
       "metadata": {
         "displayName": "Data Collection Endpoint Resource ID",
-        "description": "O Resource ID do DCE ao qual as VMs Linux devem ser associadas."
+        "description": "O Resource ID completo do DCE."
       }
     }
   },
@@ -32,7 +32,6 @@
       "effect": "deployIfNotExists",
       "details": {
         "type": "Microsoft.Insights/dataCollectionRuleAssociations",
-        "name": "[concat(field('name'), '-dce-association')]",
         "existenceCondition": {
           "field": "Microsoft.Insights/dataCollectionRuleAssociations/dataCollectionEndpointId",
           "equals": "[parameters('dataCollectionEndpointId')]"
@@ -40,23 +39,31 @@
         "roleDefinitionIds": [
           "/providers/microsoft.authorization/roleDefinitions/fd9d4d64-3a87-4d7c-a397-399b01c1b0b6"
         ],
+        "deploymentScope": "resourceGroup",
         "deployment": {
           "properties": {
             "mode": "incremental",
             "template": {
               "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
               "contentVersion": "1.0.0.0",
+              "parameters": {
+                "vmName": { "type": "string" },
+                "dataCollectionEndpointId": { "type": "string" }
+              },
               "resources": [
                 {
                   "type": "Microsoft.Insights/dataCollectionRuleAssociations",
                   "apiVersion": "2021-09-01-preview",
-                  "name": "[concat(field('name'), '-dce-association')]",
+                  "name": "[concat(parameters('vmName'), '-dce-association')]",
                   "properties": {
-                    "dataCollectionEndpointId": "[parameters('dataCollectionEndpointId')]",
-                    "description": "Associação automática da VM Linux ao DCE especificado."
+                    "dataCollectionEndpointId": "[parameters('dataCollectionEndpointId')]"
                   }
                 }
               ]
+            },
+            "parameters": {
+              "vmName": { "value": "[field('name')]" },
+              "dataCollectionEndpointId": { "value": "[parameters('dataCollectionEndpointId')]" }
             }
           }
         }
