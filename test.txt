@@ -1,0 +1,93 @@
+{
+  "displayName": "Vincular automaticamente VMs Linux ao DCE padrão via AMA",
+  "policyType": "Custom",
+  "mode": "Indexed",
+  "description": "Garante que todas as VMs Linux usem o Azure Monitor Agent vinculadas a um DCE específico.",
+  "metadata": {
+    "category": "Monitoring"
+  },
+  "parameters": {
+    "dataCollectionEndpointId": {
+      "type": "String",
+      "metadata": {
+        "displayName": "Resource ID do Data Collection Endpoint (DCE)",
+        "description": "O Resource ID completo do DCE ao qual as VMs Linux devem ser vinculadas."
+      }
+    }
+  },
+  "policyRule": {
+    "if": {
+      "allOf": [
+        {
+          "field": "type",
+          "equals": "Microsoft.Compute/virtualMachines"
+        },
+        {
+          "field": "Microsoft.Compute/virtualMachines/storageProfile.osDisk.osType",
+          "equals": "Linux"
+        }
+      ]
+    },
+    "then": {
+      "effect": "deployIfNotExists",
+      "details": {
+        "type": "Microsoft.Compute/virtualMachines/extensions",
+        "name": "AzureMonitorLinuxAgent",
+        "roleDefinitionIds": [
+          "/providers/microsoft.authorization/roleDefinitions/contributor"
+        ],
+        "deploymentScope": "resourceGroup",
+        "existenceCondition": {
+          "allOf": [
+            {
+              "field": "Microsoft.Compute/virtualMachines/extensions/publisher",
+              "equals": "Microsoft.Azure.Monitor"
+            },
+            {
+              "field": "Microsoft.Compute/virtualMachines/extensions/type",
+              "equals": "AzureMonitorLinuxAgent"
+            }
+          ]
+        },
+        "deployment": {
+          "properties": {
+            "mode": "incremental",
+            "template": {
+              "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+              "contentVersion": "1.0.0.0",
+              "parameters": {
+                "vmName": { "type": "string" },
+                "location": { "type": "string" },
+                "dataCollectionEndpointId": { "type": "string" }
+              },
+              "resources": [
+                {
+                  "type": "Microsoft.Compute/virtualMachines/extensions",
+                  "apiVersion": "2023-03-01",
+                  "name": "[concat(parameters('vmName'), '/AzureMonitorLinuxAgent')]",
+                  "location": "[parameters('location')]",
+                  "properties": {
+                    "publisher": "Microsoft.Azure.Monitor",
+                    "type": "AzureMonitorLinuxAgent",
+                    "typeHandlerVersion": "1.0",
+                    "autoUpgradeMinorVersion": true,
+                    "settings": {
+                      "dataCollectionEndpointId": "[parameters('dataCollectionEndpointId')]"
+                    }
+                  }
+                }
+              ]
+            },
+            "parameters": {
+              "vmName": { "value": "[field('name')]" },
+              "location": { "value": "[field('location')]" },
+              "dataCollectionEndpointId": {
+                "value": "[parameters('dataCollectionEndpointId')]"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
