@@ -1,69 +1,109 @@
 {
-  "displayName": "Associar automaticamente VMs Linux a um DCE específico",
+  "displayName": "Configure Linux machines to run Azure Monitor Agent and associate them to two possible DCRs (Primary/Secondary)",
   "policyType": "Custom",
   "mode": "Indexed",
-  "description": "Garante que todas as VMs Linux criadas sejam associadas automaticamente a um DCE específico via Azure Monitor Agent.",
+  "description": "Deploys the Azure Monitor Agent (AMA) on Linux VMs and associates them automatically with one of two possible Data Collection Rules (Primary/Secondary) depending on region or fallback logic.",
   "metadata": {
+    "version": "1.0.0",
     "category": "Monitoring"
   },
   "parameters": {
-    "dataCollectionEndpointId": {
+    "effect": {
       "type": "String",
       "metadata": {
-        "displayName": "Data Collection Endpoint Resource ID",
-        "description": "O Resource ID completo do DCE."
+        "displayName": "Effect",
+        "description": "Enable or disable the execution of the policy."
+      },
+      "allowedValues": [
+        "DeployIfNotExists",
+        "Disabled"
+      ],
+      "defaultValue": "DeployIfNotExists"
+    },
+    "scopeToSupportedImages": {
+      "type": "Boolean",
+      "metadata": {
+        "displayName": "Scope Policy to Azure Monitor Agent-Supported Operating Systems",
+        "description": "If set to true, the policy will apply only to machines with supported operating systems. Otherwise, the policy will apply to all machines in the assignment scope."
+      },
+      "allowedValues": [
+        true,
+        false
+      ],
+      "defaultValue": true
+    },
+    "listOfLinuxImageIdToInclude": {
+      "type": "Array",
+      "metadata": {
+        "displayName": "Additional Virtual Machine Images",
+        "description": "List of virtual machine images that have supported Linux OS to add to scope."
+      },
+      "defaultValue": []
+    },
+    "dcrResourceIdPrimary": {
+      "type": "String",
+      "metadata": {
+        "displayName": "Primary Data Collection Rule Resource Id",
+        "description": "The primary Data Collection Rule Resource ID for association."
+      }
+    },
+    "dcrResourceIdSecondary": {
+      "type": "String",
+      "metadata": {
+        "displayName": "Secondary Data Collection Rule Resource Id",
+        "description": "The secondary Data Collection Rule Resource ID (used as fallback or alternate region)."
       }
     }
   },
   "policyRule": {
     "if": {
-      "allOf": [
+      "anyOf": [
         {
           "field": "type",
           "equals": "Microsoft.Compute/virtualMachines"
         },
         {
-          "field": "Microsoft.Compute/virtualMachines/storageProfile.osDisk.osType",
-          "equals": "Linux"
+          "field": "type",
+          "equals": "Microsoft.HybridCompute/machines"
+        },
+        {
+          "field": "type",
+          "equals": "Microsoft.Compute/virtualMachineScaleSets"
         }
       ]
     },
     "then": {
-      "effect": "deployIfNotExists",
+      "effect": "[parameters('effect')]",
       "details": {
-        "type": "Microsoft.Insights/dataCollectionRuleAssociations",
+        "type": "Microsoft.Compute/virtualMachines/extensions",
+        "name": "AzureMonitorLinuxAgent",
         "existenceCondition": {
-          "field": "Microsoft.Insights/dataCollectionRuleAssociations/dataCollectionEndpointId",
-          "equals": "[parameters('dataCollectionEndpointId')]"
+          "field": "Microsoft.Compute/virtualMachines/extensions/type",
+          "equals": "AzureMonitorLinuxAgent"
         },
-        "roleDefinitionIds": [
-          "/providers/microsoft.authorization/roleDefinitions/fd9d4d64-3a87-4d7c-a397-399b01c1b0b6"
-        ],
-        "deploymentScope": "resourceGroup",
         "deployment": {
           "properties": {
             "mode": "incremental",
             "template": {
               "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
               "contentVersion": "1.0.0.0",
-              "parameters": {
-                "vmName": { "type": "string" },
-                "dataCollectionEndpointId": { "type": "string" }
-              },
               "resources": [
                 {
-                  "type": "Microsoft.Insights/dataCollectionRuleAssociations",
-                  "apiVersion": "2021-09-01-preview",
-                  "name": "[concat(parameters('vmName'), '-dce-association')]",
+                  "type": "Microsoft.Compute/virtualMachines/extensions",
+                  "apiVersion": "2021-03-01",
+                  "name": "[concat(field('name'), '/AzureMonitorLinuxAgent')]",
+                  "location": "[field('location')]",
                   "properties": {
-                    "dataCollectionEndpointId": "[parameters('dataCollectionEndpointId')]"
+                    "publisher": "Microsoft.Azure.Monitor",
+                    "type": "AzureMonitorLinuxAgent",
+                    "typeHandlerVersion": "1.0",
+                    "autoUpgradeMinorVersion": true,
+                    "settings": {
+                      "dataCollectionRuleResourceId": "[if(equals(toLower(field('location')), 'brazilsouth'), parameters('dcrResourceIdPrimary'), parameters('dcrResourceIdSecondary'))]"
+                    }
                   }
                 }
               ]
-            },
-            "parameters": {
-              "vmName": { "value": "[field('name')]" },
-              "dataCollectionEndpointId": { "value": "[parameters('dataCollectionEndpointId')]" }
             }
           }
         }
