@@ -4,7 +4,7 @@
   "mode": "Indexed",
   "description": "Deploys the Azure Monitor Agent (AMA) on Linux VMs and associates them automatically with one of two possible Data Collection Rules (Primary/Secondary) and Data Collection Endpoints (Primary/Secondary) depending on region or fallback logic.",
   "metadata": {
-    "version": "1.0.2",
+    "version": "1.0.3",
     "category": "Monitoring"
   },
   "parameters": {
@@ -59,16 +59,18 @@
         "type": "Microsoft.Compute/virtualMachines/extensions",
         "name": "AzureMonitorLinuxAgent",
         "existenceCondition": {
-          "allOf": [
-            { "value": "[parameters('dcrResourceIdPrimary')]", "exists": "true" },
-            { "value": "[parameters('dcrResourceIdSecondary')]", "exists": "true" },
-            { "value": "[parameters('dceResourceIdPrimary')]", "exists": "true" },
-            { "value": "[parameters('dceResourceIdSecondary')]", "exists": "true" }
-          ]
+          "field": "Microsoft.Compute/virtualMachines/extensions/type",
+          "equals": "AzureMonitorLinuxAgent"
         },
         "deployment": {
           "properties": {
             "mode": "incremental",
+            "parameters": {
+              "dcrPrimary": { "value": "[parameters('dcrResourceIdPrimary')]" },
+              "dcrSecondary": { "value": "[parameters('dcrResourceIdSecondary')]" },
+              "dcePrimary": { "value": "[parameters('dceResourceIdPrimary')]" },
+              "dceSecondary": { "value": "[parameters('dceResourceIdSecondary')]" }
+            },
             "template": {
               "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
               "contentVersion": "1.0.0.0",
@@ -84,8 +86,8 @@
                     "typeHandlerVersion": "1.0",
                     "autoUpgradeMinorVersion": true,
                     "settings": {
-                      "dataCollectionRuleResourceId": "[parameters('dcrResourceIdPrimary')]",
-                      "dataCollectionEndpointResourceId": "[parameters('dceResourceIdPrimary')]"
+                      "dataCollectionRuleResourceId": "[if(equals(toLower(field('location')), 'brazilsouth'), parameters('dcrPrimary'), parameters('dcrSecondary'))]",
+                      "dataCollectionEndpointResourceId": "[if(equals(toLower(field('location')), 'brazilsouth'), parameters('dcePrimary'), parameters('dceSecondary'))]"
                     }
                   }
                 }
