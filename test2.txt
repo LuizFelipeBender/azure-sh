@@ -1,10 +1,10 @@
 {
-  "displayName": "Configure Linux machines to run Azure Monitor Agent and associate them to two DCRs and two DCEs",
+  "displayName": "Configure Linux machines to run Azure Monitor Agent and associate them to two DCEs",
   "policyType": "Custom",
   "mode": "Indexed",
-  "description": "Deploys the Azure Monitor Agent (AMA) on Linux VMs and associates them automatically with one of two possible Data Collection Rules (Primary/Secondary) and Data Collection Endpoints (Primary/Secondary) depending on region or fallback logic.",
+  "description": "Deploys the Azure Monitor Agent (AMA) on Linux VMs and associates them automatically with one of two possible Data Collection Endpoints (Primary/Secondary) depending on region or fallback logic.",
   "metadata": {
-    "version": "1.0.3",
+    "version": "1.0.0",
     "category": "Monitoring"
   },
   "parameters": {
@@ -20,28 +20,18 @@
       ],
       "defaultValue": "DeployIfNotExists"
     },
-    "dcrResourceIdPrimary": {
-      "type": "String",
-      "metadata": {
-        "displayName": "Primary Data Collection Rule Resource Id"
-      }
-    },
-    "dcrResourceIdSecondary": {
-      "type": "String",
-      "metadata": {
-        "displayName": "Secondary Data Collection Rule Resource Id"
-      }
-    },
     "dceResourceIdPrimary": {
       "type": "String",
       "metadata": {
-        "displayName": "Primary Data Collection Endpoint Resource Id"
+        "displayName": "Primary Data Collection Endpoint Resource Id",
+        "description": "The primary Data Collection Endpoint Resource ID for association."
       }
     },
     "dceResourceIdSecondary": {
       "type": "String",
       "metadata": {
-        "displayName": "Secondary Data Collection Endpoint Resource Id"
+        "displayName": "Secondary Data Collection Endpoint Resource Id",
+        "description": "The secondary Data Collection Endpoint Resource ID (used as fallback)."
       }
     }
   },
@@ -66,8 +56,6 @@
           "properties": {
             "mode": "incremental",
             "parameters": {
-              "dcrPrimary": { "value": "[parameters('dcrResourceIdPrimary')]" },
-              "dcrSecondary": { "value": "[parameters('dcrResourceIdSecondary')]" },
               "dcePrimary": { "value": "[parameters('dceResourceIdPrimary')]" },
               "dceSecondary": { "value": "[parameters('dceResourceIdSecondary')]" }
             },
@@ -86,7 +74,6 @@
                     "typeHandlerVersion": "1.0",
                     "autoUpgradeMinorVersion": true,
                     "settings": {
-                      "dataCollectionRuleResourceId": "[if(equals(toLower(field('location')), 'brazilsouth'), parameters('dcrPrimary'), parameters('dcrSecondary'))]",
                       "dataCollectionEndpointResourceId": "[if(equals(toLower(field('location')), 'brazilsouth'), parameters('dcePrimary'), parameters('dceSecondary'))]"
                     }
                   }
