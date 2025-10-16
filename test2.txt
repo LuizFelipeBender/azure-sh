@@ -1,0 +1,66 @@
+{
+  "displayName": "Associar automaticamente VMs Linux a um DCE específico",
+  "policyType": "Custom",
+  "mode": "Indexed",
+  "description": "Garante que todas as VMs Linux criadas sejam associadas automaticamente a um DCE específico via Azure Monitor Agent.",
+  "metadata": {
+    "category": "Monitoring"
+  },
+  "parameters": {
+    "dataCollectionEndpointId": {
+      "type": "String",
+      "metadata": {
+        "displayName": "Data Collection Endpoint Resource ID",
+        "description": "O Resource ID do DCE ao qual as VMs Linux devem ser associadas."
+      }
+    }
+  },
+  "policyRule": {
+    "if": {
+      "allOf": [
+        {
+          "field": "type",
+          "equals": "Microsoft.Compute/virtualMachines"
+        },
+        {
+          "field": "Microsoft.Compute/virtualMachines/storageProfile.osDisk.osType",
+          "equals": "Linux"
+        }
+      ]
+    },
+    "then": {
+      "effect": "deployIfNotExists",
+      "details": {
+        "type": "Microsoft.Insights/dataCollectionRuleAssociations",
+        "name": "[concat(field('name'), '-dce-association')]",
+        "existenceCondition": {
+          "field": "Microsoft.Insights/dataCollectionRuleAssociations/dataCollectionEndpointId",
+          "equals": "[parameters('dataCollectionEndpointId')]"
+        },
+        "roleDefinitionIds": [
+          "/providers/microsoft.authorization/roleDefinitions/fd9d4d64-3a87-4d7c-a397-399b01c1b0b6"
+        ],
+        "deployment": {
+          "properties": {
+            "mode": "incremental",
+            "template": {
+              "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+              "contentVersion": "1.0.0.0",
+              "resources": [
+                {
+                  "type": "Microsoft.Insights/dataCollectionRuleAssociations",
+                  "apiVersion": "2021-09-01-preview",
+                  "name": "[concat(field('name'), '-dce-association')]",
+                  "properties": {
+                    "dataCollectionEndpointId": "[parameters('dataCollectionEndpointId')]",
+                    "description": "Associação automática da VM Linux ao DCE especificado."
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}
