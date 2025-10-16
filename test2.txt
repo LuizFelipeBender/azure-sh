@@ -1,10 +1,10 @@
 {
-  "displayName": "Configure Linux machines to run Azure Monitor Agent and associate them with regional or fallback DCRs",
+  "displayName": "Configure Linux machines to run Azure Monitor Agent and associate them to two possible DCRs (Primary/Secondary)",
   "policyType": "Custom",
   "mode": "Indexed",
-  "description": "Deploys the Azure Monitor Agent (AMA) on Linux machines and associates them automatically with a Data Collection Rule (DCR) based on the machine's region, with fallback logic to the primary DCR.",
+  "description": "Deploys the Azure Monitor Agent (AMA) on Linux VMs and associates them automatically with one of two possible Data Collection Rules (Primary/Secondary) depending on region or fallback logic.",
   "metadata": {
-    "version": "2.0.0",
+    "version": "1.0.0",
     "category": "Monitoring"
   },
   "parameters": {
@@ -23,42 +23,53 @@
     "scopeToSupportedImages": {
       "type": "Boolean",
       "metadata": {
-        "displayName": "Scope Policy to AMA-supported Linux OS images",
-        "description": "If true, the policy applies only to supported Linux OS images."
+        "displayName": "Scope Policy to Azure Monitor Agent-Supported Operating Systems",
+        "description": "If set to true, the policy will apply only to machines with supported operating systems. Otherwise, the policy will apply to all machines in the assignment scope."
       },
-      "allowedValues": [true, false],
+      "allowedValues": [
+        true,
+        false
+      ],
       "defaultValue": true
     },
     "listOfLinuxImageIdToInclude": {
       "type": "Array",
       "metadata": {
         "displayName": "Additional Virtual Machine Images",
-        "description": "List of additional supported Linux VM image IDs."
+        "description": "List of virtual machine images that have supported Linux OS to add to scope."
       },
       "defaultValue": []
     },
     "dcrResourceIdPrimary": {
       "type": "String",
       "metadata": {
-        "displayName": "Primary (Fallback) Data Collection Rule Resource ID",
-        "description": "The default DCR to associate when no region-specific mapping is found."
+        "displayName": "Primary Data Collection Rule Resource Id",
+        "description": "The primary Data Collection Rule Resource ID for association."
       }
     },
-    "regionalDcrMapping": {
-      "type": "Object",
+    "dcrResourceIdSecondary": {
+      "type": "String",
       "metadata": {
-        "displayName": "Regional DCR Mapping",
-        "description": "Object that maps Azure regions to specific Data Collection Rule IDs. Example: { 'eastus': '<dcr-eastus-id>', 'westeurope': '<dcr-westeurope-id>' }"
-      },
-      "defaultValue": {}
+        "displayName": "Secondary Data Collection Rule Resource Id",
+        "description": "The secondary Data Collection Rule Resource ID (used as fallback or alternate region)."
+      }
     }
   },
   "policyRule": {
     "if": {
       "anyOf": [
-        { "field": "type", "equals": "Microsoft.Compute/virtualMachines" },
-        { "field": "type", "equals": "Microsoft.HybridCompute/machines" },
-        { "field": "type", "equals": "Microsoft.Compute/virtualMachineScaleSets" }
+        {
+          "field": "type",
+          "equals": "Microsoft.Compute/virtualMachines"
+        },
+        {
+          "field": "type",
+          "equals": "Microsoft.HybridCompute/machines"
+        },
+        {
+          "field": "type",
+          "equals": "Microsoft.Compute/virtualMachineScaleSets"
+        }
       ]
     },
     "then": {
@@ -88,7 +99,7 @@
                     "typeHandlerVersion": "1.0",
                     "autoUpgradeMinorVersion": true,
                     "settings": {
-                      "dataCollectionRuleResourceId": "[if(contains(keys(parameters('regionalDcrMapping')), toLower(field('location'))), parameters('regionalDcrMapping')[toLower(field('location'))], parameters('dcrResourceIdPrimary'))]"
+                      "dataCollectionRuleResourceId": "[if(equals(toLower(field('location')), 'brazilsouth'), parameters('dcrResourceIdPrimary'), parameters('dcrResourceIdSecondary'))]"
                     }
                   }
                 }
