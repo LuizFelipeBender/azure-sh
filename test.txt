@@ -1,89 +1,84 @@
 {
-  "displayName": "Vincular automaticamente VMs Linux ao DCE padrão via AMA",
+  "displayName": "Configure Linux machines to run Azure Monitor Agent and associate them to two DCEs",
   "policyType": "Custom",
   "mode": "Indexed",
-  "description": "Garante que todas as VMs Linux usem o Azure Monitor Agent vinculadas a um DCE específico.",
+  "description": "Deploys the Azure Monitor Agent (AMA) on Linux VMs and associates them automatically with one of two possible Data Collection Endpoints (Primary/Secondary) depending on region or fallback logic.",
   "metadata": {
+    "version": "1.0.0",
     "category": "Monitoring"
   },
   "parameters": {
-    "dataCollectionEndpointId": {
+    "effect": {
       "type": "String",
       "metadata": {
-        "displayName": "Resource ID do Data Collection Endpoint (DCE)",
-        "description": "O Resource ID completo do DCE ao qual as VMs Linux devem ser vinculadas."
+        "displayName": "Effect",
+        "description": "Enable or disable the execution of the policy."
+      },
+      "allowedValues": [
+        "DeployIfNotExists",
+        "Disabled"
+      ],
+      "defaultValue": "DeployIfNotExists"
+    },
+    "dceResourceIdPrimary": {
+      "type": "String",
+      "metadata": {
+        "displayName": "Primary Data Collection Endpoint Resource Id",
+        "description": "The primary Data Collection Endpoint Resource ID for association."
+      }
+    },
+    "dceResourceIdSecondary": {
+      "type": "String",
+      "metadata": {
+        "displayName": "Secondary Data Collection Endpoint Resource Id",
+        "description": "The secondary Data Collection Endpoint Resource ID (used as fallback)."
       }
     }
   },
   "policyRule": {
     "if": {
-      "allOf": [
-        {
-          "field": "type",
-          "equals": "Microsoft.Compute/virtualMachines"
-        },
-        {
-          "field": "Microsoft.Compute/virtualMachines/storageProfile.osDisk.osType",
-          "equals": "Linux"
-        }
+      "anyOf": [
+        { "field": "type", "equals": "Microsoft.Compute/virtualMachines" },
+        { "field": "type", "equals": "Microsoft.HybridCompute/machines" },
+        { "field": "type", "equals": "Microsoft.Compute/virtualMachineScaleSets" }
       ]
     },
     "then": {
-      "effect": "deployIfNotExists",
+      "effect": "[parameters('effect')]",
       "details": {
         "type": "Microsoft.Compute/virtualMachines/extensions",
         "name": "AzureMonitorLinuxAgent",
-        "roleDefinitionIds": [
-          "/providers/microsoft.authorization/roleDefinitions/contributor"
-        ],
-        "deploymentScope": "resourceGroup",
         "existenceCondition": {
-          "allOf": [
-            {
-              "field": "Microsoft.Compute/virtualMachines/extensions/publisher",
-              "equals": "Microsoft.Azure.Monitor"
-            },
-            {
-              "field": "Microsoft.Compute/virtualMachines/extensions/type",
-              "equals": "AzureMonitorLinuxAgent"
-            }
-          ]
+          "field": "Microsoft.Compute/virtualMachines/extensions/type",
+          "equals": "AzureMonitorLinuxAgent"
         },
         "deployment": {
           "properties": {
             "mode": "incremental",
+            "parameters": {
+              "dcePrimary": { "value": "[parameters('dceResourceIdPrimary')]" },
+              "dceSecondary": { "value": "[parameters('dceResourceIdSecondary')]" }
+            },
             "template": {
               "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
               "contentVersion": "1.0.0.0",
-              "parameters": {
-                "vmName": { "type": "string" },
-                "location": { "type": "string" },
-                "dataCollectionEndpointId": { "type": "string" }
-              },
               "resources": [
                 {
                   "type": "Microsoft.Compute/virtualMachines/extensions",
-                  "apiVersion": "2023-03-01",
-                  "name": "[concat(parameters('vmName'), '/AzureMonitorLinuxAgent')]",
-                  "location": "[parameters('location')]",
+                  "apiVersion": "2021-03-01",
+                  "name": "[concat(field('name'), '/AzureMonitorLinuxAgent')]",
+                  "location": "[field('location')]",
                   "properties": {
                     "publisher": "Microsoft.Azure.Monitor",
                     "type": "AzureMonitorLinuxAgent",
                     "typeHandlerVersion": "1.0",
                     "autoUpgradeMinorVersion": true,
                     "settings": {
-                      "dataCollectionEndpointId": "[parameters('dataCollectionEndpointId')]"
+                      "dataCollectionEndpointResourceId": "[if(equals(toLower(field('location')), 'brazilsouth'), parameters('dcePrimary'), parameters('dceSecondary'))]"
                     }
                   }
                 }
               ]
-            },
-            "parameters": {
-              "vmName": { "value": "[field('name')]" },
-              "location": { "value": "[field('location')]" },
-              "dataCollectionEndpointId": {
-                "value": "[parameters('dataCollectionEndpointId')]"
-              }
             }
           }
         }
