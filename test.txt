@@ -1,88 +1,40 @@
-{
-  "displayName": "Configure Linux machines to run Azure Monitor Agent and associate them to two DCEs",
-  "policyType": "Custom",
-  "mode": "Indexed",
-  "description": "Deploys the Azure Monitor Agent (AMA) on Linux VMs and associates them automatically with one of two possible Data Collection Endpoints (Primary/Secondary) depending on region or fallback logic.",
-  "metadata": {
-    "version": "1.0.0",
-    "category": "Monitoring"
-  },
-  "parameters": {
-    "effect": {
-      "type": "String",
-      "metadata": {
-        "displayName": "Effect",
-        "description": "Enable or disable the execution of the policy."
-      },
-      "allowedValues": [
-        "DeployIfNotExists",
-        "Disabled"
-      ],
-      "defaultValue": "DeployIfNotExists"
-    },
-    "dceResourceIdPrimary": {
-      "type": "String",
-      "metadata": {
-        "displayName": "Primary Data Collection Endpoint Resource Id",
-        "description": "The primary Data Collection Endpoint Resource ID for association."
-      }
-    },
-    "dceResourceIdSecondary": {
-      "type": "String",
-      "metadata": {
-        "displayName": "Secondary Data Collection Endpoint Resource Id",
-        "description": "The secondary Data Collection Endpoint Resource ID (used as fallback)."
-      }
-    }
-  },
-  "policyRule": {
-    "if": {
-      "anyOf": [
-        { "field": "type", "equals": "Microsoft.Compute/virtualMachines" },
-        { "field": "type", "equals": "Microsoft.HybridCompute/machines" },
-        { "field": "type", "equals": "Microsoft.Compute/virtualMachineScaleSets" }
-      ]
-    },
-    "then": {
-      "effect": "[parameters('effect')]",
-      "details": {
-        "type": "Microsoft.Compute/virtualMachines/extensions",
-        "name": "AzureMonitorLinuxAgent",
-        "existenceCondition": {
-          "field": "Microsoft.Compute/virtualMachines/extensions/type",
-          "equals": "AzureMonitorLinuxAgent"
-        },
-        "deployment": {
-          "properties": {
-            "mode": "incremental",
-            "parameters": {
-              "dcePrimary": { "value": "[parameters('dceResourceIdPrimary')]" },
-              "dceSecondary": { "value": "[parameters('dceResourceIdSecondary')]" }
-            },
-            "template": {
-              "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-              "contentVersion": "1.0.0.0",
-              "resources": [
-                {
-                  "type": "Microsoft.Compute/virtualMachines/extensions",
-                  "apiVersion": "2021-03-01",
-                  "name": "[concat(field('name'), '/AzureMonitorLinuxAgent')]",
-                  "location": "[field('location')]",
-                  "properties": {
-                    "publisher": "Microsoft.Azure.Monitor",
-                    "type": "AzureMonitorLinuxAgent",
-                    "typeHandlerVersion": "1.0",
-                    "autoUpgradeMinorVersion": true,
-                    "settings": {
-                      "dataCollectionEndpointResourceId": "[if(equals(toLower(field('location')), 'brazilsouth'), parameters('dcePrimary'), parameters('dceSecondary'))]"
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      }
-    }
-  }
-}
+# ---------------------------
+# API Gateway (HTTP API)
+# ---------------------------
+info "\n🌐 Configurando API Gateway..."
+API_ID="$(aws_call apigatewayv2 get-apis --query "Items[?Name=='${API_NAME}'].ApiId" --output text || true)"
+
+if [ -z "$API_ID" ] || [ "$API_ID" = "None" ]; then
+  warn "Criando API Gateway..."
+  API_ID="$(aws_call apigatewayv2 create-api --name "$API_NAME" --protocol-type HTTP --query 'ApiId' --output text)"
+
+  INTEGRATION_ID="$(aws_call apigatewayv2 create-integration \
+    --api-id "$API_ID" \
+    --integration-type AWS_PROXY \
+    --integration-uri "arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:${FUNCTION_NAME}" \
+    --payload-format-version 2.0 \
+    --query 'IntegrationId' --output text)"
+
+  aws_call apigatewayv2 create-route --api-id "$API_ID" --route-key 'ANY /{proxy+}' --target "integrations/${INTEGRATION_ID}" >/dev/null
+  aws_call apigatewayv2 create-route --api-id "$API_ID" --route-key 'ANY /'        --target "integrations/${INTEGRATION_ID}" >/dev/null
+
+  aws_call apigatewayv2 create-stage --api-id "$API_ID" --stage-name prod --auto-deploy >/dev/null
+
+  aws_call lambda add-permission \
+    --function-name "$FUNCTION_NAME" \
+    --statement-id apigateway-invoke \
+    --action lambda:InvokeFunction \
+    --principal apigateway.amazonaws.com \
+    --source-arn "arn:aws:execute-api:${REGION}:${ACCOUNT_ID}:${API_ID}/*/*" >/dev/null 2>&1 || true
+
+  ok "API Gateway criado"
+else
+  ok "API Gateway já existe: $API_ID"
+fi
+
+API_URL="https://${API_ID}.execute-api.${REGION}.amazonaws.com/prod"
+ok "Base URL: ${API_URL}"
+
+echo -e "\n${GREEN}✨ Deploy concluído! ✨${NC}"
+echo -e "${CYAN}Testar:${NC} curl ${API_URL}/health"
+echo -e "${CYAN}Logs:${NC}  aws logs tail /aws/lambda/${FUNCTION_NAME} --follow --region ${REGION}"
