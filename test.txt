@@ -1,40 +1,53 @@
-# ---------------------------
-# API Gateway (HTTP API)
-# ---------------------------
-info "\n🌐 Configurando API Gateway..."
-API_ID="$(aws_call apigatewayv2 get-apis --query "Items[?Name=='${API_NAME}'].ApiId" --output text || true)"
+BEGIN;
 
-if [ -z "$API_ID" ] || [ "$API_ID" = "None" ]; then
-  warn "Criando API Gateway..."
-  API_ID="$(aws_call apigatewayv2 create-api --name "$API_NAME" --protocol-type HTTP --query 'ApiId' --output text)"
+-- 1) Collaborators
+-- Substitua __BCRYPT_HASH__ pelo hash bcrypt real do DEFAULT_PASSWORD ("ChangeMe123!")
+-- Exemplo de hash começa com: $2b$12$...
 
-  INTEGRATION_ID="$(aws_call apigatewayv2 create-integration \
-    --api-id "$API_ID" \
-    --integration-type AWS_PROXY \
-    --integration-uri "arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:${FUNCTION_NAME}" \
-    --payload-format-version 2.0 \
-    --query 'IntegrationId' --output text)"
+INSERT INTO collaborators (id, email, name, role, hashed_password, active)
+VALUES
+  (1, 'admin@example.com',   'Admin User',      'ADMIN',     '__BCRYPT_HASH__', TRUE),
+  (2, 'diretor@example.com', 'Carlos Silva',    'MODERATOR', '__BCRYPT_HASH__', TRUE),
+  (3, 'gerente@example.com', 'Ana Costa',       'MODERATOR', '__BCRYPT_HASH__', TRUE),
+  (4, 'coord@example.com',   'Roberto Santos',  'CURATOR',   '__BCRYPT_HASH__', TRUE),
+  (5, 'analista1@example.com','Mariana Lima',   'USER',      '__BCRYPT_HASH__', TRUE),
+  (6, 'analista2@example.com','Pedro Oliveira', 'USER',      '__BCRYPT_HASH__', TRUE),
+  (7, 'analista3@example.com','Juliana Ferreira','USER',     '__BCRYPT_HASH__', TRUE)
+ON CONFLICT (id) DO UPDATE
+SET
+  email = EXCLUDED.email,
+  name = EXCLUDED.name,
+  role = EXCLUDED.role
+  -- não sobrescreve a senha se já existir (igual ao teu script)
+  -- , hashed_password = EXCLUDED.hashed_password
+;
 
-  aws_call apigatewayv2 create-route --api-id "$API_ID" --route-key 'ANY /{proxy+}' --target "integrations/${INTEGRATION_ID}" >/dev/null
-  aws_call apigatewayv2 create-route --api-id "$API_ID" --route-key 'ANY /'        --target "integrations/${INTEGRATION_ID}" >/dev/null
+-- 2) Organizational Hierarchy
+-- Usa timestamp UTC consistente
+WITH ts AS (
+  SELECT (now() AT TIME ZONE 'utc') AS now_utc
+)
+INSERT INTO organizational_hierarchy
+  (collaborator_id, supervisor_id, job_level, job_title, department, cost_center, is_active, created_at, updated_at)
+SELECT * FROM (
+  VALUES
+    (1, NULL, 'DIRECTOR',        'Diretor de TI',          'Tecnologia',        NULL, TRUE),
+    (2, 1,    'SENIOR_MANAGER',  'Diretor de Dados',       'Dados & Analytics', NULL, TRUE),
+    (3, 2,    'MANAGER',         'Gerente de Analytics',   'Dados & Analytics', NULL, TRUE),
+    (4, 3,    'COORDINATOR',     'Coordenador de BI',      'Dados & Analytics', NULL, TRUE),
+    (5, 4,    'ANALYST',         'Analista de Dados Sr.',  'Dados & Analytics', NULL, TRUE),
+    (6, 4,    'ANALYST',         'Analista de Dados Pl.',  'Dados & Analytics', NULL, TRUE),
+    (7, 3,    'SPECIALIST',      'Especialista em ML',     'Dados & Analytics', NULL, TRUE)
+) AS v(collaborator_id, supervisor_id, job_level, job_title, department, cost_center, is_active),
+ts
+ON CONFLICT (collaborator_id) DO UPDATE
+SET
+  supervisor_id = EXCLUDED.supervisor_id,
+  job_level     = EXCLUDED.job_level,
+  job_title     = EXCLUDED.job_title,
+  department    = EXCLUDED.department,
+  cost_center   = EXCLUDED.cost_center,
+  is_active     = EXCLUDED.is_active,
+  updated_at    = (now() AT TIME ZONE 'utc');
 
-  aws_call apigatewayv2 create-stage --api-id "$API_ID" --stage-name prod --auto-deploy >/dev/null
-
-  aws_call lambda add-permission \
-    --function-name "$FUNCTION_NAME" \
-    --statement-id apigateway-invoke \
-    --action lambda:InvokeFunction \
-    --principal apigateway.amazonaws.com \
-    --source-arn "arn:aws:execute-api:${REGION}:${ACCOUNT_ID}:${API_ID}/*/*" >/dev/null 2>&1 || true
-
-  ok "API Gateway criado"
-else
-  ok "API Gateway já existe: $API_ID"
-fi
-
-API_URL="https://${API_ID}.execute-api.${REGION}.amazonaws.com/prod"
-ok "Base URL: ${API_URL}"
-
-echo -e "\n${GREEN}✨ Deploy concluído! ✨${NC}"
-echo -e "${CYAN}Testar:${NC} curl ${API_URL}/health"
-echo -e "${CYAN}Logs:${NC}  aws logs tail /aws/lambda/${FUNCTION_NAME} --follow --region ${REGION}"
+COMMIT;
