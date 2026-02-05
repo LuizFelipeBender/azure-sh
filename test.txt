@@ -1,53 +1,10 @@
+-- Export gerado via Python
 BEGIN;
-
--- 1) Collaborators
--- Substitua __BCRYPT_HASH__ pelo hash bcrypt real do DEFAULT_PASSWORD ("ChangeMe123!")
--- Exemplo de hash começa com: $2b$12$...
-
-INSERT INTO collaborators (id, email, name, role, hashed_password, active)
-VALUES
-  (1, 'admin@example.com',   'Admin User',      'ADMIN',     '__BCRYPT_HASH__', TRUE),
-  (2, 'diretor@example.com', 'Carlos Silva',    'MODERATOR', '__BCRYPT_HASH__', TRUE),
-  (3, 'gerente@example.com', 'Ana Costa',       'MODERATOR', '__BCRYPT_HASH__', TRUE),
-  (4, 'coord@example.com',   'Roberto Santos',  'CURATOR',   '__BCRYPT_HASH__', TRUE),
-  (5, 'analista1@example.com','Mariana Lima',   'USER',      '__BCRYPT_HASH__', TRUE),
-  (6, 'analista2@example.com','Pedro Oliveira', 'USER',      '__BCRYPT_HASH__', TRUE),
-  (7, 'analista3@example.com','Juliana Ferreira','USER',     '__BCRYPT_HASH__', TRUE)
-ON CONFLICT (id) DO UPDATE
-SET
-  email = EXCLUDED.email,
-  name = EXCLUDED.name,
-  role = EXCLUDED.role
-  -- não sobrescreve a senha se já existir (igual ao teu script)
-  -- , hashed_password = EXCLUDED.hashed_password
-;
-
--- 2) Organizational Hierarchy
--- Usa timestamp UTC consistente
-WITH ts AS (
-  SELECT (now() AT TIME ZONE 'utc') AS now_utc
-)
-INSERT INTO organizational_hierarchy
-  (collaborator_id, supervisor_id, job_level, job_title, department, cost_center, is_active, created_at, updated_at)
-SELECT * FROM (
-  VALUES
-    (1, NULL, 'DIRECTOR',        'Diretor de TI',          'Tecnologia',        NULL, TRUE),
-    (2, 1,    'SENIOR_MANAGER',  'Diretor de Dados',       'Dados & Analytics', NULL, TRUE),
-    (3, 2,    'MANAGER',         'Gerente de Analytics',   'Dados & Analytics', NULL, TRUE),
-    (4, 3,    'COORDINATOR',     'Coordenador de BI',      'Dados & Analytics', NULL, TRUE),
-    (5, 4,    'ANALYST',         'Analista de Dados Sr.',  'Dados & Analytics', NULL, TRUE),
-    (6, 4,    'ANALYST',         'Analista de Dados Pl.',  'Dados & Analytics', NULL, TRUE),
-    (7, 3,    'SPECIALIST',      'Especialista em ML',     'Dados & Analytics', NULL, TRUE)
-) AS v(collaborator_id, supervisor_id, job_level, job_title, department, cost_center, is_active),
-ts
-ON CONFLICT (collaborator_id) DO UPDATE
-SET
-  supervisor_id = EXCLUDED.supervisor_id,
-  job_level     = EXCLUDED.job_level,
-  job_title     = EXCLUDED.job_title,
-  department    = EXCLUDED.department,
-  cost_center   = EXCLUDED.cost_center,
-  is_active     = EXCLUDED.is_active,
-  updated_at    = (now() AT TIME ZONE 'utc');
-
+INSERT INTO "public"."collaborators" ("id", "email", "name", "role", "active", "created_at", "updated_at", "hashed_password") VALUES (1, 'admin@example.com', 'Admin User', 'ADMIN', TRUE, '2026-02-01T18:33:18.026370+00:00', NULL, '$2b$12$Tm4gyIzWqZm9B.Mrxwlvu.7sJt9nXqSQeITgWuV5pLzXBiZfI6SQ6');
+INSERT INTO "public"."collaborators" ("id", "email", "name", "role", "active", "created_at", "updated_at", "hashed_password") VALUES (2, 'diretor@example.com', 'Carlos Silva', 'MODERATOR', TRUE, '2026-02-01T18:33:18.026370+00:00', NULL, '$2b$12$sDy/m1acZYGGPUPzJfO4MeESDdiKAm26TsdmsPteRXT1ps4edBFk6');
+INSERT INTO "public"."collaborators" ("id", "email", "name", "role", "active", "created_at", "updated_at", "hashed_password") VALUES (3, 'gerente@example.com', 'Ana Costa', 'MODERATOR', TRUE, '2026-02-01T18:33:18.026370+00:00', NULL, '$2b$12$OHEHq6wTlF2pXDvbk0uAieKCwaesQff/07oPhY4A5iJyDMI5hZ5dW');
+INSERT INTO "public"."collaborators" ("id", "email", "name", "role", "active", "created_at", "updated_at", "hashed_password") VALUES (4, 'coord@example.com', 'Roberto Santos', 'CURATOR', TRUE, '2026-02-01T18:33:18.026370+00:00', NULL, '$2b$12$ZeovSeOy3S2Usri48GxAzuJpb7nBWkGZInEWNbSNjxIiJXc4YzvX.');
+INSERT INTO "public"."collaborators" ("id", "email", "name", "role", "active", "created_at", "updated_at", "hashed_password") VALUES (5, 'analista1@example.com', 'Mariana Lima', 'USER', TRUE, '2026-02-01T18:33:18.026370+00:00', NULL, '$2b$12$Mv2AyrtbQ4OhJAAPWZwXJeJGdfZWtwt93b7WmCRQ9XM2bg9yKACn6');
+INSERT INTO "public"."collaborators" ("id", "email", "name", "role", "active", "created_at", "updated_at", "hashed_password") VALUES (6, 'analista2@example.com', 'Pedro Oliveira', 'USER', TRUE, '2026-02-01T18:33:18.026370+00:00', NULL, '$2b$12$GYJhHoQdorje2yhqJq9MvuJAZeMGBHjjSu/SLxGJiC4aarO4Tr2.C');
+INSERT INTO "public"."collaborators" ("id", "email", "name", "role", "active", "created_at", "updated_at", "hashed_password") VALUES (7, 'analista3@example.com', 'Juliana Ferreira', 'USER', TRUE, '2026-02-01T18:33:18.026370+00:00', NULL, '$2b$12$STZHiHSsvn9ZpQAFgT.ac.Dl7wz2LFmoR9XI2B5HLKEnM5INvlACC');
 COMMIT;
