@@ -8,3 +8,15 @@ INSERT INTO "public"."collaborators" ("id", "email", "name", "role", "active", "
 INSERT INTO "public"."collaborators" ("id", "email", "name", "role", "active", "created_at", "updated_at", "hashed_password") VALUES (6, 'analista2@example.com', 'Pedro Oliveira', 'USER', TRUE, '2026-02-01T18:33:18.026370+00:00', NULL, '$2b$12$GYJhHoQdorje2yhqJq9MvuJAZeMGBHjjSu/SLxGJiC4aarO4Tr2.C');
 INSERT INTO "public"."collaborators" ("id", "email", "name", "role", "active", "created_at", "updated_at", "hashed_password") VALUES (7, 'analista3@example.com', 'Juliana Ferreira', 'USER', TRUE, '2026-02-01T18:33:18.026370+00:00', NULL, '$2b$12$STZHiHSsvn9ZpQAFgT.ac.Dl7wz2LFmoR9XI2B5HLKEnM5INvlACC');
 COMMIT;
+
+
+-- Export gerado via Python
+BEGIN;
+INSERT INTO "public"."organizational_hierarchy" ("id", "collaborator_id", "supervisor_id", "job_level", "job_title", "department", "cost_center", "is_active", "created_at", "updated_at") VALUES (2, 1, NULL, '6', 'Diretor de TI', 'Tecnologia', NULL, TRUE, '2026-02-01T18:59:29.918754+00:00', '2026-02-01T18:59:29.918754+00:00');
+INSERT INTO "public"."organizational_hierarchy" ("id", "collaborator_id", "supervisor_id", "job_level", "job_title", "department", "cost_center", "is_active", "created_at", "updated_at") VALUES (3, 2, 1, '5', 'Diretor de Dados', 'Dados & Analytics', NULL, TRUE, '2026-02-01T18:59:29.918754+00:00', '2026-02-01T18:59:29.918754+00:00');
+INSERT INTO "public"."organizational_hierarchy" ("id", "collaborator_id", "supervisor_id", "job_level", "job_title", "department", "cost_center", "is_active", "created_at", "updated_at") VALUES (4, 3, 2, '4', 'Gerente de Analytics', 'Dados & Analytics', NULL, TRUE, '2026-02-01T18:59:29.918754+00:00', '2026-02-01T18:59:29.918754+00:00');
+INSERT INTO "public"."organizational_hierarchy" ("id", "collaborator_id", "supervisor_id", "job_level", "job_title", "department", "cost_center", "is_active", "created_at", "updated_at") VALUES (5, 4, 3, '3', 'Coordenador de BI', 'Dados & Analytics', NULL, TRUE, '2026-02-01T18:59:29.918754+00:00', '2026-02-01T18:59:29.918754+00:00');
+INSERT INTO "public"."organizational_hierarchy" ("id", "collaborator_id", "supervisor_id", "job_level", "job_title", "department", "cost_center", "is_active", "created_at", "updated_at") VALUES (6, 5, 4, '1', 'Analista de Dados Sr.', 'Dados & Analytics', NULL, TRUE, '2026-02-01T18:59:29.918754+00:00', '2026-02-01T18:59:29.918754+00:00');
+INSERT INTO "public"."organizational_hierarchy" ("id", "collaborator_id", "supervisor_id", "job_level", "job_title", "department", "cost_center", "is_active", "created_at", "updated_at") VALUES (7, 6, 4, '1', 'Analista de Dados Pl.', 'Dados & Analytics', NULL, TRUE, '2026-02-01T18:59:29.918754+00:00', '2026-02-01T18:59:29.918754+00:00');
+INSERT INTO "public"."organizational_hierarchy" ("id", "collaborator_id", "supervisor_id", "job_level", "job_title", "department", "cost_center", "is_active", "created_at", "updated_at") VALUES (8, 7, 3, '2', 'Especialista em ML', 'Dados & Analytics', NULL, TRUE, '2026-02-01T18:59:29.918754+00:00', '2026-02-01T18:59:29.918754+00:00');
+COMMIT;
