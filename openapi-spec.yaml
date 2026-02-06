@@ -1,0 +1,1439 @@
+openapi: 3.0.3
+info:
+  title: Cases Management API
+  description: |
+    API para gestão de cases com suporte a:
+    - Autenticação JWT/OAuth2
+    - CRUD completo de cases
+    - Gestão de envolvidos (involvements)
+    - Moderação e aprovações
+    - Integração com IA
+    - Notificações
+    - Upload de arquivos
+    - Hierarquia organizacional
+    - Analytics e relatórios
+  version: 1.0.0
+  contact:
+    name: Time de Desenvolvimento
+    email: dev@casos.com.br
+  license:
+    name: Proprietary
+
+servers:
+  - url: https://api.cases.com/api/v1
+    description: Produção
+  - url: https://staging-api.cases.com/api/v1
+    description: Staging
+  - url: http://localhost:8000/api/v1
+    description: Desenvolvimento Local
+
+tags:
+  - name: auth
+    description: Autenticação e autorização
+  - name: cases
+    description: Gerenciamento de cases
+  - name: users
+    description: Gerenciamento de usuários/colaboradores
+  - name: involvements
+    description: Gestão de envolvidos nos cases
+  - name: matching
+    description: Matching e sugestões de envolvidos
+  - name: moderation
+    description: Moderação e aprovações
+  - name: ai
+    description: Funcionalidades de IA
+  - name: files
+    description: Upload e gestão de arquivos
+  - name: notifications
+    description: Notificações do sistema
+  - name: hierarchy
+    description: Hierarquia organizacional
+  - name: admin
+    description: Configurações administrativas
+  - name: curator
+    description: Funcionalidades do curador
+  - name: external-data
+    description: Integração com dados externos
+  - name: agents
+    description: Agentes de decisão
+  - name: analytics
+    description: Analytics e métricas
+
+security:
+  - BearerAuth: []
+
+paths:
+  # ===========================
+  # AUTH ENDPOINTS
+  # ===========================
+  /auth/login/access-token:
+    post:
+      tags:
+        - auth
+      summary: Login e obtenção de token
+      description: Endpoint OAuth2 para login e geração de access token JWT
+      operationId: loginAccessToken
+      security: []  # Endpoint público
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                  format: email
+                  description: Email do usuário
+                  example: admin@admin.com
+                password:
+                  type: string
+                  format: password
+                  description: Senha do usuário
+                  example: admin123
+      responses:
+        '200':
+          description: Login realizado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Token'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/test-token:
+    post:
+      tags:
+        - auth
+      summary: Validar token
+      description: Testa se o token JWT é válido e retorna dados do usuário
+      operationId: testToken
+      responses:
+        '200':
+          description: Token válido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ===========================
+  # CASES ENDPOINTS
+  # ===========================
+  /cases/:
+    get:
+      tags:
+        - cases
+      summary: Listar cases
+      description: Retorna lista paginada de cases com filtros opcionais
+      operationId: listCases
+      parameters:
+        - name: skip
+          in: query
+          description: Número de registros para pular (paginação)
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: limit
+          in: query
+          description: Limite de registros por página
+          required: false
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+        - name: status
+          in: query
+          description: Filtrar por status do case
+          required: false
+          schema:
+            $ref: '#/components/schemas/CaseStatus'
+        - name: created_by
+          in: query
+          description: Filtrar por ID do criador
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Lista de cases retornada com sucesso
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CaseResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    
+    post:
+      tags:
+        - cases
+      summary: Criar novo case
+      description: Cria um novo case e inicia busca automática de variáveis
+      operationId: createCase
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaseCreate'
+      responses:
+        '201':
+          description: Case criado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /cases/{case_id}:
+    get:
+      tags:
+        - cases
+      summary: Obter case por ID
+      description: Retorna detalhes completos de um case específico
+      operationId: getCase
+      parameters:
+        - $ref: '#/components/parameters/CaseId'
+      responses:
+        '200':
+          description: Case encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    
+    patch:
+      tags:
+        - cases
+      summary: Atualizar case
+      description: Atualiza parcialmente um case existente
+      operationId: updateCase
+      parameters:
+        - $ref: '#/components/parameters/CaseId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaseUpdate'
+      responses:
+        '200':
+          description: Case atualizado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    
+    delete:
+      tags:
+        - cases
+      summary: Deletar case
+      description: Remove um case (somente criador ou admin)
+      operationId: deleteCase
+      parameters:
+        - $ref: '#/components/parameters/CaseId'
+      responses:
+        '204':
+          description: Case deletado com sucesso
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /cases/{case_id}/status:
+    patch:
+      tags:
+        - cases
+      summary: Atualizar status do case
+      description: Muda o status do case (workflow)
+      operationId: updateCaseStatus
+      parameters:
+        - $ref: '#/components/parameters/CaseId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  $ref: '#/components/schemas/CaseStatus'
+      responses:
+        '200':
+          description: Status atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /cases/{case_id}/audit-log:
+    get:
+      tags:
+        - cases
+      summary: Obter histórico de auditoria
+      description: Retorna log de todas as alterações do case
+      operationId: getCaseAuditLog
+      parameters:
+        - $ref: '#/components/parameters/CaseId'
+      responses:
+        '200':
+          description: Histórico retornado
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditLogResponse'
+
+  # ===========================
+  # USERS ENDPOINTS
+  # ===========================
+  /users/me:
+    get:
+      tags:
+        - users
+      summary: Obter usuário atual
+      description: Retorna dados do usuário logado
+      operationId: getCurrentUser
+      responses:
+        '200':
+          description: Dados do usuário
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /users/:
+    get:
+      tags:
+        - users
+      summary: Listar usuários
+      description: Lista todos os colaboradores do sistema
+      operationId: listUsers
+      parameters:
+        - name: skip
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Lista de usuários
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserResponse'
+
+  /users/{user_id}:
+    get:
+      tags:
+        - users
+      summary: Obter usuário por ID
+      description: Retorna dados de um usuário específico
+      operationId: getUser
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Usuário encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ===========================
+  # INVOLVEMENTS ENDPOINTS
+  # ===========================
+  /involvements/:
+    post:
+      tags:
+        - involvements
+      summary: Criar envolvimento
+      description: Adiciona um envolvido a um case
+      operationId: createInvolvement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvolvementCreate'
+      responses:
+        '201':
+          description: Envolvimento criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvolvementResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /involvements/{involvement_id}:
+    delete:
+      tags:
+        - involvements
+      summary: Remover envolvimento
+      description: Remove um envolvido de um case
+      operationId: deleteInvolvement
+      parameters:
+        - name: involvement_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Envolvimento removido
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ===========================
+  # MATCHING ENDPOINTS
+  # ===========================
+  /matching/suggest/{case_id}:
+    get:
+      tags:
+        - matching
+      summary: Sugerir envolvidos
+      description: Retorna sugestões de envolvidos para o case baseado em IA
+      operationId: suggestInvolvements
+      parameters:
+        - $ref: '#/components/parameters/CaseId'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Sugestões retornadas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MatchingSuggestion'
+
+  # ===========================
+  # MODERATION ENDPOINTS
+  # ===========================
+  /moderation/pending:
+    get:
+      tags:
+        - moderation
+      summary: Listar pendências
+      description: Lista itens aguardando moderação
+      operationId: listPendingModerations
+      responses:
+        '200':
+          description: Lista de pendências
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ModerationItem'
+
+  /moderation/{item_id}/approve:
+    post:
+      tags:
+        - moderation
+      summary: Aprovar item
+      description: Aprova um item em moderação
+      operationId: approveModeration
+      parameters:
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Item aprovado
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /moderation/{item_id}/reject:
+    post:
+      tags:
+        - moderation
+      summary: Rejeitar item
+      description: Rejeita um item em moderação
+      operationId: rejectModeration
+      parameters:
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+                  description: Motivo da rejeição
+      responses:
+        '200':
+          description: Item rejeitado
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ===========================
+  # AI ENDPOINTS
+  # ===========================
+  /cases/{case_id}/ai/analyze:
+    post:
+      tags:
+        - ai
+      summary: Análise por IA
+      description: Analisa o case usando IA e retorna insights
+      operationId: analyzeCaseWithAI
+      parameters:
+        - $ref: '#/components/parameters/CaseId'
+      responses:
+        '200':
+          description: Análise concluída
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIAnalysisResponse'
+
+  /cases/{case_id}/ai/suggest-actions:
+    get:
+      tags:
+        - ai
+      summary: Sugerir ações
+      description: IA sugere próximas ações para o case
+      operationId: suggestActions
+      parameters:
+        - $ref: '#/components/parameters/CaseId'
+      responses:
+        '200':
+          description: Sugestões geradas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActionSuggestion'
+
+  # ===========================
+  # FILES ENDPOINTS
+  # ===========================
+  /files/upload:
+    post:
+      tags:
+        - files
+      summary: Upload de arquivo
+      description: Faz upload de arquivo para S3
+      operationId: uploadFile
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                case_id:
+                  type: integer
+                  description: ID do case (opcional)
+      responses:
+        '201':
+          description: Upload realizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /files/{file_id}:
+    get:
+      tags:
+        - files
+      summary: Obter arquivo
+      description: Retorna URL assinada para download
+      operationId: getFile
+      parameters:
+        - name: file_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: URL de download
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  download_url:
+                    type: string
+                    format: uri
+        '404':
+          $ref: '#/components/responses/NotFound'
+    
+    delete:
+      tags:
+        - files
+      summary: Deletar arquivo
+      description: Remove arquivo do S3
+      operationId: deleteFile
+      parameters:
+        - name: file_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Arquivo deletado
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ===========================
+  # NOTIFICATIONS ENDPOINTS
+  # ===========================
+  /notifications/:
+    get:
+      tags:
+        - notifications
+      summary: Listar notificações
+      description: Retorna notificações do usuário logado
+      operationId: listNotifications
+      parameters:
+        - name: unread_only
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Lista de notificações
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NotificationResponse'
+
+  /notifications/{notification_id}/read:
+    post:
+      tags:
+        - notifications
+      summary: Marcar como lida
+      description: Marca notificação como lida
+      operationId: markNotificationAsRead
+      parameters:
+        - name: notification_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Notificação marcada como lida
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ===========================
+  # HIERARCHY ENDPOINTS
+  # ===========================
+  /hierarchy/:
+    get:
+      tags:
+        - hierarchy
+      summary: Obter hierarquia
+      description: Retorna estrutura hierárquica da organização
+      operationId: getHierarchy
+      responses:
+        '200':
+          description: Hierarquia organizacional
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HierarchyResponse'
+
+  # ===========================
+  # ADMIN ENDPOINTS
+  # ===========================
+  /admin/config:
+    get:
+      tags:
+        - admin
+      summary: Obter configurações
+      description: Retorna configurações do sistema (admin only)
+      operationId: getAdminConfig
+      responses:
+        '200':
+          description: Configurações
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    
+    patch:
+      tags:
+        - admin
+      summary: Atualizar configurações
+      description: Atualiza configurações do sistema (admin only)
+      operationId: updateAdminConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigUpdate'
+      responses:
+        '200':
+          description: Configurações atualizadas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ===========================
+  # EXTERNAL DATA ENDPOINTS
+  # ===========================
+  /external-data/search:
+    post:
+      tags:
+        - external-data
+      summary: Buscar dados externos
+      description: Busca informações em sistemas externos
+      operationId: searchExternalData
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - query
+              properties:
+                query:
+                  type: string
+                source:
+                  type: string
+                  enum: [SALESFORCE, SAP, JIRA, CUSTOM]
+      responses:
+        '200':
+          description: Dados encontrados
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExternalDataResponse'
+
+  # ===========================
+  # ANALYTICS ENDPOINTS
+  # ===========================
+  /analytics/dashboard:
+    get:
+      tags:
+        - analytics
+      summary: Dashboard de métricas
+      description: Retorna métricas e KPIs do sistema
+      operationId: getDashboard
+      parameters:
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Métricas do dashboard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardMetrics'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Token JWT obtido através do endpoint /auth/login/access-token
+        
+        Exemplo:
+        ```
+        Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        ```
+
+  parameters:
+    CaseId:
+      name: case_id
+      in: path
+      required: true
+      description: ID único do case
+      schema:
+        type: integer
+        example: 123
+
+  schemas:
+    # ===========================
+    # AUTH SCHEMAS
+    # ===========================
+    Token:
+      type: object
+      required:
+        - access_token
+        - token_type
+      properties:
+        access_token:
+          type: string
+          description: Token JWT para autenticação
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        token_type:
+          type: string
+          description: Tipo do token (sempre "bearer")
+          example: bearer
+
+    # ===========================
+    # USER SCHEMAS
+    # ===========================
+    UserResponse:
+      type: object
+      required:
+        - id
+        - email
+        - name
+        - role
+        - active
+      properties:
+        id:
+          type: integer
+          example: 1
+        email:
+          type: string
+          format: email
+          example: admin@admin.com
+        name:
+          type: string
+          example: Administrador
+        role:
+          type: string
+          enum: [ADMIN, CURATOR, USER]
+          example: ADMIN
+        active:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    # ===========================
+    # CASE SCHEMAS
+    # ===========================
+    CaseStatus:
+      type: string
+      enum:
+        - DRAFT
+        - PENDING_REVIEW
+        - IN_PROGRESS
+        - PENDING_APPROVAL
+        - APPROVED
+        - REJECTED
+        - COMPLETED
+        - CANCELLED
+      example: IN_PROGRESS
+
+    CaseCreate:
+      type: object
+      required:
+        - title
+        - description
+      properties:
+        title:
+          type: string
+          minLength: 5
+          maxLength: 200
+          example: Implementação de novo módulo
+        description:
+          type: string
+          minLength: 10
+          example: Descrição detalhada do caso e contexto
+        client_name:
+          type: string
+          example: Empresa XYZ
+        estimated_use_date:
+          type: string
+          format: date
+          example: "2024-12-31"
+        variables:
+          type: array
+          items:
+            type: object
+            required:
+              - name
+              - value
+            properties:
+              name:
+                type: string
+                example: ENVIRONMENT
+              value:
+                type: string
+                example: PRODUCTION
+
+    CaseUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 5
+          maxLength: 200
+        description:
+          type: string
+          minLength: 10
+        status:
+          $ref: '#/components/schemas/CaseStatus'
+        client_name:
+          type: string
+        estimated_use_date:
+          type: string
+          format: date
+
+    CaseResponse:
+      type: object
+      required:
+        - id
+        - title
+        - description
+        - status
+        - created_by
+        - created_at
+      properties:
+        id:
+          type: integer
+          example: 123
+        title:
+          type: string
+          example: Implementação de novo módulo
+        description:
+          type: string
+          example: Descrição detalhada do caso
+        status:
+          $ref: '#/components/schemas/CaseStatus'
+        client_name:
+          type: string
+          example: Empresa XYZ
+        estimated_use_date:
+          type: string
+          format: date
+        created_by:
+          type: integer
+          example: 1
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        variables:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              name:
+                type: string
+              value:
+                type: string
+              is_cancelled:
+                type: boolean
+        involvements:
+          type: array
+          items:
+            $ref: '#/components/schemas/InvolvementResponse'
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileResponse'
+
+    AuditLogResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        action:
+          type: string
+          enum: [CREATED, UPDATED, STATUS_CHANGED, DELETED]
+        field:
+          type: string
+        old_value:
+          type: string
+        new_value:
+          type: string
+        user_id:
+          type: integer
+        user_name:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    # ===========================
+    # INVOLVEMENT SCHEMAS
+    # ===========================
+    InvolvementCreate:
+      type: object
+      required:
+        - case_id
+        - user_id
+        - involvement_type
+      properties:
+        case_id:
+          type: integer
+        user_id:
+          type: integer
+        involvement_type:
+          type: string
+          enum: [OWNER, APPROVER, COLLABORATOR, OBSERVER]
+        notes:
+          type: string
+
+    InvolvementResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        case_id:
+          type: integer
+        user_id:
+          type: integer
+        user_name:
+          type: string
+        user_email:
+          type: string
+        involvement_type:
+          type: string
+          enum: [OWNER, APPROVER, COLLABORATOR, OBSERVER]
+        status:
+          type: string
+          enum: [PENDING, ACCEPTED, DECLINED]
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    # ===========================
+    # MATCHING SCHEMAS
+    # ===========================
+    MatchingSuggestion:
+      type: object
+      properties:
+        user_id:
+          type: integer
+        user_name:
+          type: string
+        user_email:
+          type: string
+        score:
+          type: number
+          format: float
+          description: Score de relevância (0-1)
+          example: 0.95
+        reasons:
+          type: array
+          items:
+            type: string
+          example:
+            - Expertise em Python
+            - Trabalhou em casos similares
+            - Alta taxa de aprovação
+
+    # ===========================
+    # MODERATION SCHEMAS
+    # ===========================
+    ModerationItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        item_type:
+          type: string
+          enum: [CASE, INVOLVEMENT, DECISION]
+        item_id:
+          type: integer
+        status:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED]
+        submitted_by:
+          type: integer
+        submitted_at:
+          type: string
+          format: date-time
+
+    # ===========================
+    # AI SCHEMAS
+    # ===========================
+    AIAnalysisResponse:
+      type: object
+      properties:
+        summary:
+          type: string
+          description: Resumo gerado por IA
+        sentiment:
+          type: string
+          enum: [POSITIVE, NEUTRAL, NEGATIVE]
+        complexity_score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        risk_factors:
+          type: array
+          items:
+            type: string
+        recommendations:
+          type: array
+          items:
+            type: string
+
+    ActionSuggestion:
+      type: object
+      properties:
+        action:
+          type: string
+        priority:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+        reasoning:
+          type: string
+        estimated_effort:
+          type: string
+
+    # ===========================
+    # FILE SCHEMAS
+    # ===========================
+    FileResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        filename:
+          type: string
+          example: documento.pdf
+        file_size:
+          type: integer
+          description: Tamanho em bytes
+        content_type:
+          type: string
+          example: application/pdf
+        s3_key:
+          type: string
+        case_id:
+          type: integer
+        uploaded_by:
+          type: integer
+        uploaded_at:
+          type: string
+          format: date-time
+
+    # ===========================
+    # NOTIFICATION SCHEMAS
+    # ===========================
+    NotificationResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [CASE_ASSIGNED, APPROVAL_REQUIRED, STATUS_CHANGE, COMMENT_ADDED]
+        title:
+          type: string
+        message:
+          type: string
+        read:
+          type: boolean
+        link:
+          type: string
+          description: Link para o item relacionado
+        created_at:
+          type: string
+          format: date-time
+
+    # ===========================
+    # HIERARCHY SCHEMAS
+    # ===========================
+    HierarchyResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        level:
+          type: integer
+        parent_id:
+          type: integer
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/HierarchyResponse'
+
+    # ===========================
+    # CONFIG SCHEMAS
+    # ===========================
+    ConfigResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        key:
+          type: string
+        value:
+          type: string
+        description:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+
+    ConfigUpdate:
+      type: object
+      required:
+        - key
+        - value
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+
+    # ===========================
+    # EXTERNAL DATA SCHEMAS
+    # ===========================
+    ExternalDataResponse:
+      type: object
+      properties:
+        source:
+          type: string
+        id:
+          type: string
+        title:
+          type: string
+        data:
+          type: object
+          additionalProperties: true
+
+    # ===========================
+    # ANALYTICS SCHEMAS
+    # ===========================
+    DashboardMetrics:
+      type: object
+      properties:
+        total_cases:
+          type: integer
+        active_cases:
+          type: integer
+        completed_cases:
+          type: integer
+        pending_approvals:
+          type: integer
+        avg_completion_time:
+          type: number
+          description: Tempo médio em dias
+        cases_by_status:
+          type: object
+          additionalProperties:
+            type: integer
+        cases_by_month:
+          type: array
+          items:
+            type: object
+            properties:
+              month:
+                type: string
+              count:
+                type: integer
+
+    # ===========================
+    # PAGINATION SCHEMA
+    # ===========================
+    PaginatedResponse:
+      type: object
+      required:
+        - items
+        - total
+        - skip
+        - limit
+      properties:
+        items:
+          type: array
+          items: {}
+        total:
+          type: integer
+          description: Total de itens disponíveis
+        skip:
+          type: integer
+          description: Itens pulados (offset)
+        limit:
+          type: integer
+          description: Limite por página
+        has_next:
+          type: boolean
+          description: Indica se há próxima página
+
+    # ===========================
+    # ERROR SCHEMAS
+    # ===========================
+    Error:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Mensagem de erro
+          example: Recurso não encontrado
+
+    ValidationError:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: array
+          items:
+            type: object
+            properties:
+              loc:
+                type: array
+                items:
+                  type: string
+                description: Localização do erro
+              msg:
+                type: string
+                description: Mensagem de erro
+              type:
+                type: string
+                description: Tipo do erro
+
+  responses:
+    BadRequest:
+      description: Requisição inválida
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            detail: Parâmetros inválidos
+
+    Unauthorized:
+      description: Não autorizado - Token inválido ou ausente
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            detail: Could not validate credentials
+
+    Forbidden:
+      description: Acesso negado - Usuário sem permissão
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            detail: Insufficient permissions
+
+    NotFound:
+      description: Recurso não encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            detail: Case not found
+
+    ValidationError:
+      description: Erro de validação
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
