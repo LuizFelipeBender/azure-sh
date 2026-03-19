@@ -1,48 +1,96 @@
--- Export gerado via Python
-BEGIN;
-INSERT INTO "public"."collaborators" ("id", "email", "name", "role", "active", "created_at", "updated_at", "hashed_password") VALUES (1, 'admin@example.com', 'Admin User', 'ADMIN', TRUE, '2026-02-01T18:33:18.026370+00:00', NULL, '$2b$12$Tm4gyIzWqZm9B.Mrxwlvu.7sJt9nXqSQeITgWuV5pLzXBiZfI6SQ6');
-INSERT INTO "public"."collaborators" ("id", "email", "name", "role", "active", "created_at", "updated_at", "hashed_password") VALUES (2, 'diretor@example.com', 'Carlos Silva', 'MODERATOR', TRUE, '2026-02-01T18:33:18.026370+00:00', NULL, '$2b$12$sDy/m1acZYGGPUPzJfO4MeESDdiKAm26TsdmsPteRXT1ps4edBFk6');
-INSERT INTO "public"."collaborators" ("id", "email", "name", "role", "active", "created_at", "updated_at", "hashed_password") VALUES (3, 'gerente@example.com', 'Ana Costa', 'MODERATOR', TRUE, '2026-02-01T18:33:18.026370+00:00', NULL, '$2b$12$OHEHq6wTlF2pXDvbk0uAieKCwaesQff/07oPhY4A5iJyDMI5hZ5dW');
-INSERT INTO "public"."collaborators" ("id", "email", "name", "role", "active", "created_at", "updated_at", "hashed_password") VALUES (4, 'coord@example.com', 'Roberto Santos', 'CURATOR', TRUE, '2026-02-01T18:33:18.026370+00:00', NULL, '$2b$12$ZeovSeOy3S2Usri48GxAzuJpb7nBWkGZInEWNbSNjxIiJXc4YzvX.');
-INSERT INTO "public"."collaborators" ("id", "email", "name", "role", "active", "created_at", "updated_at", "hashed_password") VALUES (5, 'analista1@example.com', 'Mariana Lima', 'USER', TRUE, '2026-02-01T18:33:18.026370+00:00', NULL, '$2b$12$Mv2AyrtbQ4OhJAAPWZwXJeJGdfZWtwt93b7WmCRQ9XM2bg9yKACn6');
-INSERT INTO "public"."collaborators" ("id", "email", "name", "role", "active", "created_at", "updated_at", "hashed_password") VALUES (6, 'analista2@example.com', 'Pedro Oliveira', 'USER', TRUE, '2026-02-01T18:33:18.026370+00:00', NULL, '$2b$12$GYJhHoQdorje2yhqJq9MvuJAZeMGBHjjSu/SLxGJiC4aarO4Tr2.C');
-INSERT INTO "public"."collaborators" ("id", "email", "name", "role", "active", "created_at", "updated_at", "hashed_password") VALUES (7, 'analista3@example.com', 'Juliana Ferreira', 'USER', TRUE, '2026-02-01T18:33:18.026370+00:00', NULL, '$2b$12$STZHiHSsvn9ZpQAFgT.ac.Dl7wz2LFmoR9XI2B5HLKEnM5INvlACC');
-COMMIT;
+from __future__ import annotations
+
+from datetime import datetime
+
+from sqlalchemy import (
+    BigInteger,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    Text,
+    func,
+)
+from sqlalchemy.orm import relationship
+
+from src.db.base import Base
 
 
--- Export gerado via Python
-BEGIN;
-INSERT INTO "public"."organizational_hierarchy" ("id", "collaborator_id", "supervisor_id", "job_level", "job_title", "department", "cost_center", "is_active", "created_at", "updated_at") VALUES (2, 1, NULL, '6', 'Diretor de TI', 'Tecnologia', NULL, TRUE, '2026-02-01T18:59:29.918754+00:00', '2026-02-01T18:59:29.918754+00:00');
-INSERT INTO "public"."organizational_hierarchy" ("id", "collaborator_id", "supervisor_id", "job_level", "job_title", "department", "cost_center", "is_active", "created_at", "updated_at") VALUES (3, 2, 1, '5', 'Diretor de Dados', 'Dados & Analytics', NULL, TRUE, '2026-02-01T18:59:29.918754+00:00', '2026-02-01T18:59:29.918754+00:00');
-INSERT INTO "public"."organizational_hierarchy" ("id", "collaborator_id", "supervisor_id", "job_level", "job_title", "department", "cost_center", "is_active", "created_at", "updated_at") VALUES (4, 3, 2, '4', 'Gerente de Analytics', 'Dados & Analytics', NULL, TRUE, '2026-02-01T18:59:29.918754+00:00', '2026-02-01T18:59:29.918754+00:00');
-INSERT INTO "public"."organizational_hierarchy" ("id", "collaborator_id", "supervisor_id", "job_level", "job_title", "department", "cost_center", "is_active", "created_at", "updated_at") VALUES (5, 4, 3, '3', 'Coordenador de BI', 'Dados & Analytics', NULL, TRUE, '2026-02-01T18:59:29.918754+00:00', '2026-02-01T18:59:29.918754+00:00');
-INSERT INTO "public"."organizational_hierarchy" ("id", "collaborator_id", "supervisor_id", "job_level", "job_title", "department", "cost_center", "is_active", "created_at", "updated_at") VALUES (6, 5, 4, '1', 'Analista de Dados Sr.', 'Dados & Analytics', NULL, TRUE, '2026-02-01T18:59:29.918754+00:00', '2026-02-01T18:59:29.918754+00:00');
-INSERT INTO "public"."organizational_hierarchy" ("id", "collaborator_id", "supervisor_id", "job_level", "job_title", "department", "cost_center", "is_active", "created_at", "updated_at") VALUES (7, 6, 4, '1', 'Analista de Dados Pl.', 'Dados & Analytics', NULL, TRUE, '2026-02-01T18:59:29.918754+00:00', '2026-02-01T18:59:29.918754+00:00');
-INSERT INTO "public"."organizational_hierarchy" ("id", "collaborator_id", "supervisor_id", "job_level", "job_title", "department", "cost_center", "is_active", "created_at", "updated_at") VALUES (8, 7, 3, '2', 'Especialista em ML', 'Dados & Analytics', NULL, TRUE, '2026-02-01T18:59:29.918754+00:00', '2026-02-01T18:59:29.918754+00:00');
-COMMIT;
+class SuggestionCorrection(Base):
+    """
+    Records corrections made by curators to table suggestions.
+    Used for tracking and improving future matching.
+    """
+    __tablename__ = "suggestion_corrections"
 
+    id = Column(BigInteger, primary_key=True, index=True)
 
+    # Variable that was corrected
+    variable_id = Column(
+        BigInteger,
+        ForeignKey("case_variables.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
 
-from datetime import datetime, timedelta, timezone
-from typing import Any, Union
-from jose import jwt
-from passlib.context import CryptContext
-from app.core.config import settings
+    # Original suggestion (the table that was incorrectly suggested)
+    original_table_id = Column(
+        BigInteger,
+        ForeignKey("data_tables.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    original_score = Column(Float, nullable=True)
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    # Corrected table (the correct table selected by curator)
+    corrected_table_id = Column(
+        BigInteger,
+        ForeignKey("data_tables.id", ondelete="CASCADE"),
+        nullable=False,
+    )
 
-def create_access_token(subject: Union[str, Any], expires_delta: timedelta = None) -> str:
-    if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    
-    to_encode = {"exp": expire, "sub": str(subject)}
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    return encoded_jwt
+    # Curator who made the correction
+    curator_id = Column(
+        BigInteger,
+        ForeignKey("collaborators.id"),
+        nullable=False,
+        index=True,
+    )
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    # Reason/justification for the correction
+    correction_reason = Column(Text, nullable=True)
 
-def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+    # Impact indicator - was the original approved before correction?
+    was_original_approved = Column(Integer, default=0, nullable=False)  # 0=no, 1=yes
+
+    # Timestamps
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    # Link to the curation task (variable_curation.id)
+    curation_id = Column(
+        BigInteger,
+        ForeignKey("variable_curation.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    # Relationships
+    variable = relationship("CaseVariable", backref="corrections")
+    original_table = relationship("DataTable", foreign_keys=[original_table_id])
+    corrected_table = relationship("DataTable", foreign_keys=[corrected_table_id])
+    curator = relationship("Collaborator", backref="corrections_made")
+
+    # Relation with VariableCuration
+    curation = relationship("VariableCuration", back_populates="suggestions")
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return (
+            f"<SuggestionCorrection "
+            f"var={self.variable_id} "
+            f"original={self.original_table_id} "
+            f"corrected={self.corrected_table_id}>"
+        )
